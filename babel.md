@@ -778,3 +778,148 @@ const visitor = {
 // 遍历 AST 树并删除注释
 traverse(ast, visitor);
 ```
+
+### @babel/parser
+
+#### @babel/parser 的作用
+
+@babel/parser 是 Babel 提供的 JavaScript 解析器。可用于将 JavaScript 代码解析成 AST 抽象语法树的形式。
+
+#### 安装
+
+```
+npm install @babel/parser -D
+```
+
+### @babel/parser 常用 API
+
+#### babelParser.parse(code, [options])
+
+babelParser.parse(code, [options]) 是一个用于解析 JavaScript 代码并生成 AST 抽象语法树的方法。
+
+babelParser.parse(code, [options]) 参数说明：
+
+1. code：要解析的 JavaScript 代码，注意该参数是**字符串形式**。
+
+2. options：可选参数，是一个对象形式参数。用于指定解析器的配置选项。
+
+- sourceType：指定代码的类型， 可以是 "script"、"module" 或 "unambiguous" 之一。 默认为 "script"。 "unambiguous" 将使@babel/parser 尝试根据 ES6 import 或 export 语句的存在进行猜测。 具有 ES6 import 和 export 的文件被视为 "module"，否则为 "script"。
+
+- plugins：一个数组，指定要使用的 Babel 插件。这些插件可以支持解析更高级的语法特性，如 JSX、TypeScript 等。默认为空数组。
+
+#### 使用示例
+
+```js
+const babelParser = require("@babel/parser");
+
+const code = `function add(a: number, b: number):number {
+  console.log(a, b);
+  return a + b;
+}`;
+
+const ast = babelParser.parse(code, {
+  sourceType: "module",
+  plugins: ["jsx", "typescript"],
+});
+
+console.log(ast);
+```
+
+注意：如果需要解析 `JSX`、`TypeScript`，需要先安装 `@babel/plugin-syntax-jsx`、`@babel/preset-typescript` 这两个插件。否则将无法成功解析。
+
+### @babel/generator
+
+#### @babel/generator 的作用
+
+@babel/generator 是 Babel 提供的一个包，用于将 AST 抽象语法树转换回 JavaScript 代码的字符串形式。
+
+#### 安装
+
+```
+npm install @babel/generator -D
+```
+
+### @babel/generator 常用 API
+
+#### babelGenerator.default(ast, options, code)
+
+babelGenerator.default(ast, options, code) 参数说明：
+
+1. ast：必要参数，需要被转换成 JS 代码的 AST 抽象语法树。
+
+2. options：可选参数，一个对象，用于指定生成器的配置选项。常用配置选项如下：
+
+- retainLines：指定是否保留生成的代码中的空行。默认为 `false`。
+
+- compact：布尔值或 `'auto'`，设置为 `true` 以避免为格式化添加空格。
+
+- minified：指定生成的代码是否进行混淆压缩。当设置为 true 时，将启用更进一步的代码压缩优化。默认为 `false`。
+
+- sourceMaps：指定是否生成源映射（source maps）。默认为 `false`，表示不生成源映射。
+
+- retainFunctionParens：指定函数表达式是否保留参数周围的括号。默认为 `false`。
+
+- comments：指定生成代码中是否包含注释。可选值为 `false`（删除所有注释）、`true`（保留所有注释）。默认为 `true`。
+
+3. code：可选参数，原始代码的字符串形式。如果提供了原始代码，代码生成器将尽量保留原始代码中的格式和注释，可以理解为 ast 转换成 JS 代码的模板。
+
+#### 使用示例
+
+```js
+const fs = require("fs");
+const nodePath = require("path");
+const parser = require("@babel/parser");
+const generator = require("@babel/generator").default;
+
+const sourceCode1 = `function add(a: number, b: number):number {
+  // 这是一个行注释
+  const message = 'Hello, world!'; /* 这是一个块注释 */
+  console.log(a, b);
+  console.log('dnhyxc', message);
+  return a + b;
+}`;
+
+const sourceCode2 = "const name = 'dnhyxc'";
+
+const astA = parser.parse(sourceCode1, {
+  sourceFilename: "a.js",
+  plugins: ["typescript"],
+});
+const astB = parser.parse(sourceCode2, { sourceFilename: "b.js" });
+
+const ast = {
+  type: "Program",
+  body: [].concat(astA.program.body, astB.program.body),
+};
+
+const output = generator(
+  ast,
+  {
+    minified: true, // 启用更进一步的代码压缩优化
+    compact: true, // 以避免为格式化添加空格
+    comments: false, // 删除所有注释
+    sourceMaps: true, // 是否生成代码映射
+  },
+  {
+    "a.js": sourceCode1,
+    "b.js": sourceCode2,
+  }
+);
+
+const createModifiedCodeLog = (data, path = "json/generator.json") => {
+  fs.writeFileSync(nodePath.join(__dirname, path), data, (err) => {
+    if (err) {
+      throw err;
+    } else {
+      console.log("写入成功");
+    }
+  });
+};
+
+createModifiedCodeLog(
+  JSON.stringify({
+    ast,
+    output,
+  })
+);
+```
