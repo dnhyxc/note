@@ -865,6 +865,29 @@ babelGenerator.default(ast, options, code) 参数说明：
 
 #### 使用示例
 
+一般常用的使用方式：
+
+```js
+const parser = require("@babel/parser");
+const generator = require("@babel/generator").default;
+
+const code = `function add(a: number, b: number):number {
+  // 这是一个行注释
+  const message = 'Hello, world!'; /* 这是一个块注释 */
+  console.log(a, b);
+  console.log('dnhyxc', message);
+  return a + b;
+}`;
+
+const ast = parser.parse(code, {
+  plugins: ["typescript"],
+});
+
+const output = generator(ast, {}, code);
+```
+
+增加 `options` 配置的使用方式：
+
 ```js
 const fs = require("fs");
 const nodePath = require("path");
@@ -922,4 +945,161 @@ createModifiedCodeLog(
     output,
   })
 );
+```
+
+### @babel/traverse
+
+#### @babel/traverse 的作用
+
+@babel/traverse 是 Babel 工具链中的一个包，用于对 AST 抽象语法树进行遍历。
+
+#### 安装
+
+```
+npm install @babel/traverse -D
+```
+
+#### traverse.default(ast, visitor) 参数说明
+
+ast：必需参数，需要遍历的 ast 抽象语法树。
+
+visitor：必需参数，访问器对象（Object）。其中可以包含多种方法，用于处理不同类型的节点。这些方法会在遍历过程中被调用，接收一个 `path` 对象作为参数，在方法内部可以操作和修改节点。
+
+#### traverse.default(ast, visitor) 的使用方式
+
+遍历处理所有的 AST：
+
+```js
+const parser = require("@babel/parser");
+const traverse = require("@babel/traverse").default;
+const generator = require("@babel/generator").default;
+
+const code = `function square(n) {
+  return n * n;
+}`;
+
+const ast = parser.parse(code);
+
+traverse(ast, {
+  // 将全局变量声明为 n 的改为 x
+  enter(path) {
+    if (path.isIdentifier({ name: "n" })) {
+      path.node.name = "x";
+    }
+  },
+});
+
+const output = generator(ast, {}, code);
+
+console.log(output.code);
+/**
+ * 输出为：
+ * function square(x) {
+ *   return x * x;
+ * }
+ */
+```
+
+针对 AST 中的某些节点类型进行处理：
+
+```js
+const fs = require("fs");
+const nodePath = require("path");
+const parser = require("@babel/parser");
+const traverse = require("@babel/traverse").default;
+const generator = require("@babel/generator").default;
+
+const code = `function square(n) {
+  return n * n;
+}`;
+
+const ast = parser.parse(code);
+
+traverse(ast, {
+  // 处理 ast type 类型为 FunctionDeclaration（函数）的节点
+  FunctionDeclaration(path) {
+    // 将函数名称由 n 改为 x
+    path.node.id.name = "x";
+  },
+  // 处理 ast type 类型为 Identifier（变量声明）的节点
+  Identifier(path) {
+    // 将函数参数名称由 n 改为 x
+    if (path.isIdentifier({ name: "n" })) {
+      path.node.name = "x";
+    }
+  },
+});
+
+const output = generator(ast, {}, code);
+
+console.log(output.code);
+/**
+ * 输出为：
+ * function x(x) {
+ *   return x * x;
+ * }
+ */
+```
+
+### 总结
+
+上述 `@babel/types`、`@babel/parser`、`@babel/generator`、`@babel/traverse` 四个插件一般都是相互配合使用的。用于对源码进行处理。比如：开发 **webpack 插件**或者开发 **vscode 插件**时，都会用到上述插件。
+
+#### 一个简单的使用案例
+
+去除代码中的注释：
+
+```js
+const parser = require("@babel/parser");
+const traverse = require("@babel/traverse").default;
+const generator = require("@babel/generator").default;
+
+const code = `
+/**
+ * 去外面除块级注释
+ */
+// 外面单行去除注释
+function remove(a, b) {
+  // 去除注释1
+  // 去除注释2
+  // 去除注释3
+  /**
+   * 去除块级注释
+   */
+  /*去除块级注释*/
+  console.log(a, b); // log 注释
+  return a + b; // 这也是一个注释
+}
+`;
+
+// 将源代码解析为 AST 树
+const ast = parser.parse(code);
+
+// 删除注释的访问者
+const visitor = {
+  enter(path) {
+    const { node } = path;
+    // 删除注释
+    if (node.leadingComments || node.trailingComments) {
+      delete node.leadingComments;
+      delete node.trailingComments;
+    }
+  },
+};
+
+// 遍历 AST 树并删除注释
+traverse(ast, visitor);
+
+// 将修改后的 AST 转换回源代码字符串
+const { code: modifiedCode } = generator(ast);
+
+console.log(modifiedCode, "modifiedCode");
+
+/**
+ * 输出为：
+ * function remove(a, b) {
+ *   console.log(a, b);
+ *   return a + b;
+ * }
+ */
 ```
